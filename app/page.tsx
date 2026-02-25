@@ -181,7 +181,7 @@ export default function Portfolio() {
     return () => observer.disconnect();
   }, []);
 
-  const scrollTo = (id) => {
+  const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 

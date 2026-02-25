@@ -232,6 +232,7 @@ useEffect(() => {
         from_name: formData.name,
         from_email: formData.email,
         message: formData.message,
+        reply_to: formData.email,
         to_email: "tchoukakamgadavykarim@gmail.com",
       },
       EMAILJS_PUBLIC_KEY // La clé est ici !

@@ -171,7 +171,7 @@ export default function Portfolio() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setVisibleCards((prev) => new Set([...prev, entry.target.dataset.id]));
+              setVisibleCards((prev) => new Set([...prev, (entry.target as HTMLElement).dataset.id]));
           }
         });
       },

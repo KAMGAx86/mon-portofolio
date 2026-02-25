@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import emailjs from "@emailjs/browser";
 
-const EMAILJS_SERVICE_ID  = process.env.EMAILJS_SERVICE_ID as string;
-const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID as string;
-const EMAILJS_PUBLIC_KEY  = process.env.EMAILJS_PUBLIC_KEY as string;
+const EMAILJS_SERVICE_ID  = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID as string;
+const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID as string;
+const EMAILJS_PUBLIC_KEY  = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY as string;
 
 emailjs.init(EMAILJS_PUBLIC_KEY);
 

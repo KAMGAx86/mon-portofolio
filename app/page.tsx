@@ -157,7 +157,7 @@ export default function Portfolio() {
   useEffect(() => {
     setLoaded(true);
     const handleScroll = () => setScrollY(window.scrollY);
-    const handleMouse = (e) => setCursorPos({ x: e.clientX, y: e.clientY });
+    const handleMouse = (e: MouseEvent) => setCursorPos({ x: e.clientX, y: e.clientY });
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("mousemove", handleMouse);
     return () => {

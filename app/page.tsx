@@ -374,7 +374,7 @@ useEffect(() => {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 24 }}>
           {filtered.map((p, i) => (
-            <div key={p.id} data-id={`proj-${p.id}`} ref={(el) => (cardRefs.current[`proj-${p.id}`] = el)} onClick={() => setSelectedProject(p)}
+              <div key={p.id} data-id={`proj-${p.id}`} ref={(el) => { cardRefs.current[`proj-${p.id}`] = el; }} onClick={() => setSelectedProject(p)}
               style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, overflow: "hidden", cursor: "pointer", transition: "all 0.4s", opacity: visibleCards.has(`proj-${p.id}`) ? 1 : 0, transform: visibleCards.has(`proj-${p.id}`) ? "translateY(0)" : "translateY(40px)", transitionDelay: `${i * 80}ms` }}
               onMouseEnter={(e) => { e.currentTarget.style.border = `1px solid ${p.color}40`; e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = `0 20px 60px ${p.color}15`; }}
               onMouseLeave={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
@@ -410,7 +410,7 @@ useEffect(() => {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
           {SKILLS.map((s, i) => (
-            <div key={i} data-id={`skill-${i}`} ref={(el) => (cardRefs.current[`skill-${i}`] = el)}
+              <div key={i} data-id={`skill-${i}`} ref={(el) => { cardRefs.current[`skill-${i}`] = el; }}
               style={{ padding: 28, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, transition: "all 0.4s", opacity: visibleCards.has(`skill-${i}`) ? 1 : 0, transform: visibleCards.has(`skill-${i}`) ? "translateY(0)" : "translateY(30px)", transitionDelay: `${i * 100}ms` }}
               onMouseEnter={(e) => { e.currentTarget.style.border = `1px solid ${s.color}40`; e.currentTarget.style.background = `${s.color}05`; }}
               onMouseLeave={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.06)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}

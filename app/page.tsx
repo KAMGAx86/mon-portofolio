@@ -137,7 +137,8 @@ const STACK_HIGHLIGHTS = [
 ];
 
 export default function Portfolio() {
-  const [selectedProject, setSelectedProject] = useState(null);
+// Ajout des <any> et <Set<string>>
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const [scrollY, setScrollY] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
@@ -146,18 +147,22 @@ export default function Portfolio() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState("");
-  const [visibleCards, setVisibleCards] = useState(new Set());
-  const cardRefs = useRef({});
+  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+  const cardRefs = useRef<any>({});
 
   useEffect(() => {
     // Initialise EmailJS une seule fois au montage
     emailjs.init(EMAILJS_PUBLIC_KEY as string);
   }, []);
 
+useEffect(() => {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+  }, []);
+
   useEffect(() => {
     setLoaded(true);
     const handleScroll = () => setScrollY(window.scrollY);
-    const handleMouse = (e: MouseEvent) => setCursorPos({ x: e.clientX, y: e.clientY });
+    const handleMouse = (e: any) => setCursorPos({ x: e.clientX, y: e.clientY }); // <-- e: any
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("mousemove", handleMouse);
     return () => {
@@ -171,17 +176,19 @@ export default function Portfolio() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-              setVisibleCards((prev) => new Set([...prev, (entry.target as HTMLElement).dataset.id]));
+            // <-- as HTMLElement ajouté ici
+            setVisibleCards((prev) => new Set([...prev, (entry.target as HTMLElement).dataset.id as string]));
           }
         });
       },
       { threshold: 0.15 }
     );
-     Object.values(cardRefs.current).forEach((ref) => { if (ref) observer.observe(ref as Element); });
+    // <-- ref: any et as Element ajoutés ici
+    Object.values(cardRefs.current).forEach((ref: any) => { if (ref) observer.observe(ref as Element); });
     return () => observer.disconnect();
   }, []);
 
-  const scrollTo = (id: string) => {
+  const scrollTo = (id: string) => { // <-- id: string
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 

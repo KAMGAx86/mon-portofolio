@@ -683,7 +683,7 @@ useEffect(() => {
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: selectedProject.color, letterSpacing: 3, marginBottom: 16 }}>✨ FONCTIONNALITÉS</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {selectedProject.features.map((f, i) => (
+                  {selectedProject.features.map((f: string, i: number) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Syne', sans-serif", fontSize: 14, color: "#8892a4" }}>
                       <span style={{ color: selectedProject.color, fontWeight: 700 }}>›</span>{f}
                     </div>

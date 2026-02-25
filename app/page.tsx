@@ -177,7 +177,7 @@ export default function Portfolio() {
       },
       { threshold: 0.15 }
     );
-    Object.values(cardRefs.current).forEach((ref) => { if (ref) observer.observe(ref); });
+     Object.values(cardRefs.current).forEach((ref) => { if (ref) observer.observe(ref as Element); });
     return () => observer.disconnect();
   }, []);
 

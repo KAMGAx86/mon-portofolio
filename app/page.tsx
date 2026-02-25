@@ -7,6 +7,8 @@ const EMAILJS_SERVICE_ID  = process.env.EMAILJS_SERVICE_ID as string;
 const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID as string;
 const EMAILJS_PUBLIC_KEY  = process.env.EMAILJS_PUBLIC_KEY as string;
 
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
 
 
 const NAV_LINKS = [

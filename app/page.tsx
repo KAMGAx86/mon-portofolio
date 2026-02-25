@@ -151,7 +151,7 @@ export default function Portfolio() {
 
   useEffect(() => {
     // Initialise EmailJS une seule fois au montage
-    emailjs.init(EMAILJS_PUBLIC_KEY);
+    emailjs.init(EMAILJS_PUBLIC_KEY as string);
   }, []);
 
   useEffect(() => {

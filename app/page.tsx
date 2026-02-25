@@ -143,7 +143,12 @@ export default function Portfolio() {
   const [loaded, setLoaded] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
   const [filterCat, setFilterCat] = useState("Tous");
-  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
+  // On ajoute [key: string]: string pour permettre l'accès dynamique formData[field.key]
+  const [formData, setFormData] = useState<{[key: string]: string}>({ 
+  name: "", 
+  email: "", 
+  message: "" 
+  });
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState("");

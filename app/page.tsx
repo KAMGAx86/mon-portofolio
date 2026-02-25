@@ -693,7 +693,7 @@ useEffect(() => {
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: selectedProject.color, letterSpacing: 3, marginBottom: 16 }}>🛠️ TECHNOLOGIES</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {selectedProject.tags.map((t, i) => (
+                  {selectedProject.tags.map((t: string, i: number) => (
                     <span key={i} style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, padding: "6px 16px", border: `1px solid ${selectedProject.color}40`, color: selectedProject.color, background: `${selectedProject.color}0a`, borderRadius: 2 }}>{t}</span>
                   ))}
                 </div>

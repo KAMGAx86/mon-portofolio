@@ -1,10 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  /* Variables correspondant aux couleurs de ton portfolio */
-  --background: #080a0f;
-  --foreground: #e8eaed;
-  --accent-cyan: #00E5FF;
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+  --accent: #2563EB;
+  --accent-green: #059669;
+  --border: #E2E8F0;
+  --text-sub: #475569;
+  --text-muted: #94A3B8;
+  --bg-alt: #F8FAFC;
 }
 
 @theme inline {
@@ -23,24 +27,24 @@ body {
   box-sizing: border-box;
 }
 
-/* Configuration globale de la scrollbar.
-  Tu peux la laisser ici au lieu de la mettre dans le composant React, 
-  c'est plus performant ! 
-*/
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--accent-cyan);
-  border-radius: 2px;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-/* Suppression des marges et paddings par défaut sur tous les éléments */
-*, *::before, *::after {
-  box-sizing: border-box;
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 a {

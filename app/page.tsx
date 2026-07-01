@@ -309,8 +309,8 @@ export default function Portfolio() {
             {/* Name */}
             <div style={{ marginBottom: 24 }}>
               <h1 style={{ fontWeight: 800, letterSpacing: -2.5, lineHeight: 0.92, color: C.t1, fontSize: 'clamp(48px, 9vw, 108px)', marginBottom: 0 }}>
-                Tchouka<br />
-                <span style={{ color: C.violet }}>Davy Karim</span>
+                TCHOUKA KAMGA <br />
+                <span style={{ color: C.violet }}>DAVY KARIM </span>
               </h1>
             </div>
 

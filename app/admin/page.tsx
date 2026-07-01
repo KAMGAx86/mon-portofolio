@@ -206,8 +206,7 @@ export default function AdminPage() {
 
   // ── File upload ───────────────────────────────────────────────────────────
   const uploadFile = (file: File) => {
-    const allowed = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo']
-    if (!allowed.includes(file.type) && !/\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(file.name)) {
+    if (!/\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(file.name)) {
       notify('Format non supporté. Utilisez MP4, WebM, MOV ou AVI.', 'err'); return
     }
     if (file.size > 500 * 1024 * 1024) {
@@ -216,29 +215,48 @@ export default function AdminPage() {
 
     setUploadState('uploading'); setUploadProgress(0); setUploadedInfo(null)
 
-    const data = new FormData()
-    data.append('video', file)
-
     const xhr = new XMLHttpRequest()
+
     xhr.upload.addEventListener('progress', e => {
       if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
     })
+
     xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        const res = JSON.parse(xhr.responseText)
-        setUploadedInfo({ name: file.name, size: file.size, filename: res.filename })
-        setForm(f => ({ ...f, videoUrl: res.url }))
+      // Always try to parse JSON — handle redirect/auth errors gracefully
+      let data: Record<string, string> = {}
+      try { data = JSON.parse(xhr.responseText) } catch { /* non-JSON response */ }
+
+      if (xhr.status === 200 || xhr.status === 201) {
+        setUploadedInfo({ name: file.name, size: file.size, filename: data.filename })
+        setForm(f => ({ ...f, videoUrl: data.url }))
         setUploadState('done')
-        notify('Vidéo téléchargée avec succès !')
-      } else {
-        const err = JSON.parse(xhr.responseText)
-        notify(err.error || 'Erreur upload', 'err')
+        notify('Vidéo enregistrée !')
+      } else if (xhr.status === 401) {
         setUploadState('error')
+        notify('Session expirée — déconnectez-vous et reconnectez-vous.', 'err')
+      } else {
+        setUploadState('error')
+        notify(data.error || `Erreur serveur (${xhr.status})`, 'err')
       }
     })
-    xhr.addEventListener('error', () => { setUploadState('error'); notify('Erreur réseau', 'err') })
-    xhr.open('POST', '/api/upload')
-    xhr.send(data)
+
+    xhr.addEventListener('error', () => {
+      setUploadState('error')
+      notify('Erreur réseau — vérifiez la connexion.', 'err')
+    })
+
+    xhr.addEventListener('timeout', () => {
+      setUploadState('error')
+      notify('Délai dépassé — le fichier est peut-être trop grand.', 'err')
+    })
+
+    // Timeout: 10 minutes pour les très grosses vidéos
+    xhr.timeout = 10 * 60 * 1000
+
+    // Envoi direct en corps brut — pas de FormData → zéro double-buffering côté serveur
+    xhr.open('POST', `/api/upload?filename=${encodeURIComponent(file.name)}`)
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+    xhr.send(file)
   }
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -507,13 +525,17 @@ export default function AdminPage() {
                       /* Progress bar */
                       <div style={{ padding: '20px 20px', background: A.bg, border: `1px solid ${A.border2}`, borderRadius: 10, marginBottom: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <span style={{ fontSize: 13, color: A.t2, fontWeight: 500 }}>Upload en cours...</span>
+                          <span style={{ fontSize: 13, color: A.t2, fontWeight: 500 }}>
+                            {uploadProgress < 100 ? 'Transfert en cours…' : '⚙️ Enregistrement sur le serveur…'}
+                          </span>
                           <span style={{ fontSize: 13, color: A.violet, fontWeight: 700 }}>{uploadProgress}%</span>
                         </div>
                         <div style={{ height: 6, background: A.border2, borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${uploadProgress}%`, background: `linear-gradient(90deg, ${A.violet}, #A78BFA)`, borderRadius: 3, transition: 'width 0.2s' }} />
+                          <div style={{ height: '100%', width: `${uploadProgress}%`, background: `linear-gradient(90deg, ${A.violet}, #A78BFA)`, borderRadius: 3, transition: 'width 0.3s' }} />
                         </div>
-                        <div style={{ fontSize: 11, color: A.t3, marginTop: 8 }}>Ne fermez pas cette fenêtre…</div>
+                        <div style={{ fontSize: 11, color: A.t3, marginTop: 8 }}>
+                          {uploadProgress < 100 ? 'Ne fermez pas cette fenêtre…' : 'Vidéo reçue — finalisation en cours…'}
+                        </div>
                       </div>
                     ) : (
                       /* Drop zone */

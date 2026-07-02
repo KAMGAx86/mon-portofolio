@@ -28,7 +28,9 @@ export async function POST(request: Request) {
     projects.push(newProject)
     await saveProjects(projects)
     return NextResponse.json(newProject, { status: 201 })
-  } catch {
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  } catch (err) {
+    console.error('[POST /api/projects] Erreur:', err)
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+    return NextResponse.json({ error: `Erreur lors de la création du projet : ${msg}` }, { status: 500 })
   }
 }

@@ -221,7 +221,9 @@ export default function AdminPage() {
       // ── Vercel Blob: direct upload from browser (bypasses serverless body limit) ──
       try {
         const { upload } = await import('@vercel/blob/client')
-        const blob = await upload(`videos/${file.name}`, file, {
+        // Timestamp prefix guarantees a unique path even if same filename is re-uploaded
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+        const blob = await upload(`videos/${Date.now()}-${safeName}`, file, {
           access: 'public',
           handleUploadUrl: '/api/upload',
           onUploadProgress: ({ percentage }) => setUploadProgress(Math.round(percentage)),
@@ -279,9 +281,24 @@ export default function AdminPage() {
   }
 
   const removeVideo = async () => {
-    if (uploadedInfo?.filename && isLocalVideo(form.videoUrl)) {
-      try { await fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: uploadedInfo.filename }) }) }
-      catch { /* best-effort */ }
+    if (form.videoUrl) {
+      try {
+        if (form.videoUrl.includes('blob.vercel-storage.com')) {
+          // Delete from Vercel Blob store
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: form.videoUrl }),
+          })
+        } else if (isLocalVideo(form.videoUrl) && uploadedInfo?.filename) {
+          // Delete local file
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: uploadedInfo.filename }),
+          })
+        }
+      } catch { /* best-effort — video removed from form regardless */ }
     }
     setForm(f => ({ ...f, videoUrl: '', videoDescription: '' }))
     resetVideo()
@@ -302,8 +319,8 @@ export default function AdminPage() {
         { method: modal === 'edit' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
       )
       if (res.ok) { await fetchProjects(); closeModal(); notify(modal === 'edit' ? 'Projet mis à jour !' : 'Projet ajouté !') }
-      else { const d = await res.json(); notify(d.error || 'Erreur de sauvegarde', 'err') }
-    } catch { notify('Erreur réseau', 'err') }
+      else { const d = await res.json(); notify(d.error || 'Erreur de sauvegarde inconnue', 'err') }
+    } catch (err) { notify(`Erreur réseau : ${err instanceof Error ? err.message : 'connexion impossible'}`, 'err') }
     finally { setSaving(false) }
   }
 

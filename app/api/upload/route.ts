@@ -26,7 +26,7 @@ async function handleBlobUpload(request: Request): Promise<Response> {
       request,
       onBeforeGenerateToken: async (pathname) => {
         if (!isAuthenticated(request)) {
-          throw new Error('Non autorisé')
+          throw new Error('Non autorisé — reconnectez-vous.')
         }
         if (!ALLOWED_EXT.test(pathname)) {
           throw new Error('Format non supporté. Utilisez MP4, WebM, MOV ou AVI.')
@@ -37,16 +37,16 @@ async function handleBlobUpload(request: Request): Promise<Response> {
             'video/quicktime', 'video/x-msvideo', 'video/avi',
           ],
           maximumSizeInBytes: MAX_SIZE,
-          tokenPayload: JSON.stringify({ authenticated: true }),
         }
       },
       onUploadCompleted: async ({ blob }) => {
-        console.log('[Vercel Blob] Upload completed:', blob.url)
+        console.log('[Vercel Blob] Upload terminé:', blob.url)
       },
     })
     return NextResponse.json(jsonResponse)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Erreur upload'
+    console.error('[Upload] Erreur:', msg)
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 }
@@ -54,7 +54,7 @@ async function handleBlobUpload(request: Request): Promise<Response> {
 // ── Local dev: stream file directly to disk (no RAM buffering) ────────────────
 async function handleLocalUpload(request: Request): Promise<Response> {
   if (!isAuthenticated(request)) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    return NextResponse.json({ error: 'Non autorisé — reconnectez-vous.' }, { status: 401 })
   }
 
   const url = new URL(request.url)
@@ -65,7 +65,7 @@ async function handleLocalUpload(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'Format non supporté. Utilisez MP4, WebM, MOV ou AVI.' }, { status: 400 })
   }
   if (contentLength > MAX_SIZE) {
-    return NextResponse.json({ error: `Fichier trop volumineux (max 500 MB).` }, { status: 400 })
+    return NextResponse.json({ error: 'Fichier trop volumineux (max 500 MB).' }, { status: 400 })
   }
   if (!request.body) {
     return NextResponse.json({ error: 'Corps de la requête vide.' }, { status: 400 })
@@ -89,42 +89,49 @@ async function handleLocalUpload(request: Request): Promise<Response> {
     const nodeReadable = Readable.fromWeb(request.body as Parameters<typeof Readable.fromWeb>[0])
     const writeStream = createWriteStream(filepath)
     await pipeline(nodeReadable, writeStream)
-
     return NextResponse.json({ url: `/videos/${filename}`, name: originalName, size: contentLength, filename })
   } catch (err) {
     try { await unlink(filepath) } catch { /* ignore */ }
-    console.error('Local upload error:', err)
-    return NextResponse.json({ error: "Erreur lors de l'écriture." }, { status: 500 })
+    console.error('[Upload local] Erreur écriture:', err)
+    return NextResponse.json({ error: "Erreur lors de l'enregistrement du fichier." }, { status: 500 })
   }
 }
 
 // ── Router ─────────────────────────────────────────────────────────────────────
 export async function POST(request: Request): Promise<Response> {
-  if (IS_VERCEL) {
-    return handleBlobUpload(request)
-  }
+  if (IS_VERCEL) return handleBlobUpload(request)
   return handleLocalUpload(request)
 }
 
-// Delete local video file (only relevant in local dev)
+// ── Delete video ───────────────────────────────────────────────────────────────
 export async function DELETE(request: Request): Promise<Response> {
   if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
-  if (IS_VERCEL) {
-    // On Vercel, blob deletion handled separately (or leave orphan)
-    return NextResponse.json({ success: true })
-  }
   try {
-    const { filename } = await request.json()
+    const body = await request.json()
+
+    if (IS_VERCEL) {
+      const { url } = body
+      if (url && typeof url === 'string' && url.includes('blob.vercel-storage.com')) {
+        const { del } = await import('@vercel/blob')
+        await del(url)
+        console.log('[Vercel Blob] Vidéo supprimée:', url)
+      }
+      return NextResponse.json({ success: true })
+    }
+
+    // Local: delete file from disk
+    const { filename } = body
     if (!filename || typeof filename !== 'string' || filename.includes('..') || filename.includes('/')) {
-      return NextResponse.json({ error: 'Nom invalide.' }, { status: 400 })
+      return NextResponse.json({ error: 'Nom de fichier invalide.' }, { status: 400 })
     }
     const { unlink } = await import('fs/promises')
     const path = await import('path')
-    try { await unlink(path.join(process.cwd(), 'public', 'videos', filename)) } catch { /* gone */ }
+    try { await unlink(path.join(process.cwd(), 'public', 'videos', filename)) } catch { /* already gone */ }
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: 'Erreur suppression.' }, { status: 500 })
+  } catch (err) {
+    console.error('[Upload DELETE] Erreur:', err)
+    return NextResponse.json({ error: 'Erreur lors de la suppression.' }, { status: 500 })
   }
 }

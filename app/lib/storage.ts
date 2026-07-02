@@ -1,9 +1,3 @@
-/**
- * Storage abstraction — automatic switch between:
- *   Local dev  → data/projects.json  (filesystem)
- *   Vercel     → Vercel Blob  (projects.json in blob store)
- */
-
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
@@ -33,8 +27,12 @@ export async function getProjects(): Promise<Project[]> {
     const { list } = await import('@vercel/blob')
     const { blobs } = await list({ prefix: BLOB_KEY })
     if (blobs.length === 0) return []
-    const res = await fetch(blobs[0].url, { cache: 'no-store' })
-    if (!res.ok) return []
+    // Always use the most recently uploaded version
+    const latest = blobs.sort(
+      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    )[0]
+    const res = await fetch(latest.url, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`Lecture du blob échouée (HTTP ${res.status})`)
     return await res.json()
   }
   try {
@@ -47,7 +45,12 @@ export async function getProjects(): Promise<Project[]> {
 
 export async function saveProjects(projects: Project[]): Promise<void> {
   if (IS_VERCEL) {
-    const { put } = await import('@vercel/blob')
+    const { put, del, list } = await import('@vercel/blob')
+    // Remove all existing versions to avoid conflicts
+    const { blobs } = await list({ prefix: BLOB_KEY })
+    if (blobs.length > 0) {
+      await del(blobs.map(b => b.url))
+    }
     await put(BLOB_KEY, JSON.stringify(projects), {
       access: 'public',
       contentType: 'application/json',

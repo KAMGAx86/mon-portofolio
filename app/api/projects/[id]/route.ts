@@ -31,8 +31,10 @@ export async function PUT(
     projects[index] = { ...projects[index], ...body, id }
     await saveProjects(projects)
     return NextResponse.json(projects[index])
-  } catch {
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  } catch (err) {
+    console.error('[PUT /api/projects/:id] Erreur:', err)
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+    return NextResponse.json({ error: `Erreur lors de la mise à jour : ${msg}` }, { status: 500 })
   }
 }
 
@@ -50,7 +52,9 @@ export async function DELETE(
     const filtered = projects.filter(p => p.id !== id)
     await saveProjects(filtered)
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  } catch (err) {
+    console.error('[DELETE /api/projects/:id] Erreur:', err)
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+    return NextResponse.json({ error: `Erreur lors de la suppression : ${msg}` }, { status: 500 })
   }
 }

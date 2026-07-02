@@ -1,18 +1,6 @@
 import { NextResponse } from 'next/server'
-import { readFile, writeFile } from 'fs/promises'
-import path from 'path'
 import { createHmac } from 'crypto'
-
-const DATA_FILE = path.join(process.cwd(), 'data', 'projects.json')
-
-async function getProjects() {
-  try {
-    const data = await readFile(DATA_FILE, 'utf-8')
-    return JSON.parse(data)
-  } catch {
-    return []
-  }
-}
+import { getProjects, saveProjects } from '@/app/lib/storage'
 
 function isAuthenticated(request: Request): boolean {
   const cookie = request.headers.get('cookie') || ''
@@ -38,7 +26,7 @@ export async function POST(request: Request) {
     const projects = await getProjects()
     const newProject = { ...body, id: Date.now() }
     projects.push(newProject)
-    await writeFile(DATA_FILE, JSON.stringify(projects, null, 2), 'utf-8')
+    await saveProjects(projects)
     return NextResponse.json(newProject, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

@@ -105,7 +105,9 @@ function ProjectThumbnail({ p, size = 'lg' }: { p: Project; size?: 'sm' | 'lg' }
 function VideoPlayer({ url }: { url: string }) {
   const yt = getYtEmbed(url)
   if (yt) return <iframe src={yt} style={{ width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-  if (/\.(mp4|webm|ogg)$/i.test(url)) return <video src={url} controls style={{ width: '100%', height: '100%', background: '#000' }} />
+  // Local /videos/*, Vercel Blob (blob.vercel-storage.com), or any direct video URL
+  const isVideo = url.startsWith('/videos/') || url.includes('blob.vercel-storage.com') || /\.(mp4|webm|ogg|mov|avi|mkv)/i.test(url)
+  if (isVideo) return <video src={url} controls style={{ width: '100%', height: '100%', background: '#000' }} />
   return <ProjectThumbnail p={{ id: 0, title: '', category: '', year: '', emoji: '🎬', color: '#7C3AED', description: '', tags: [], features: [], problem: '', solution: '', github: '' }} />
 }
 

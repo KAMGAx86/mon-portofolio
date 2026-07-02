@@ -204,8 +204,10 @@ export default function AdminPage() {
     setVideoMode('url'); setUploadState('idle'); setUploadProgress(0); setUploadedInfo(null); setDragOver(false)
   }
 
-  // ── File upload ───────────────────────────────────────────────────────────
-  const uploadFile = (file: File) => {
+  // ── File upload — dual mode: Vercel Blob (prod) / XHR stream (local) ────────
+  const IS_VERCEL = process.env.NEXT_PUBLIC_IS_VERCEL === '1'
+
+  const uploadFile = async (file: File) => {
     if (!/\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(file.name)) {
       notify('Format non supporté. Utilisez MP4, WebM, MOV ou AVI.', 'err'); return
     }
@@ -215,6 +217,28 @@ export default function AdminPage() {
 
     setUploadState('uploading'); setUploadProgress(0); setUploadedInfo(null)
 
+    if (IS_VERCEL) {
+      // ── Vercel Blob: direct upload from browser (bypasses serverless body limit) ──
+      try {
+        const { upload } = await import('@vercel/blob/client')
+        const blob = await upload(`videos/${file.name}`, file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload',
+          onUploadProgress: ({ percentage }) => setUploadProgress(Math.round(percentage)),
+        })
+        setUploadedInfo({ name: file.name, size: file.size, filename: blob.pathname })
+        setForm(f => ({ ...f, videoUrl: blob.url }))
+        setUploadState('done')
+        notify('Vidéo uploadée sur Vercel Blob !')
+      } catch (err) {
+        setUploadState('error')
+        const msg = err instanceof Error ? err.message : 'Erreur upload'
+        notify(msg.includes('autorisé') ? 'Session expirée — reconnectez-vous.' : msg, 'err')
+      }
+      return
+    }
+
+    // ── Local dev: stream raw file body → no RAM buffering ────────────────────
     const xhr = new XMLHttpRequest()
 
     xhr.upload.addEventListener('progress', e => {
@@ -222,9 +246,8 @@ export default function AdminPage() {
     })
 
     xhr.addEventListener('load', () => {
-      // Always try to parse JSON — handle redirect/auth errors gracefully
       let data: Record<string, string> = {}
-      try { data = JSON.parse(xhr.responseText) } catch { /* non-JSON response */ }
+      try { data = JSON.parse(xhr.responseText) } catch { /* non-JSON */ }
 
       if (xhr.status === 200 || xhr.status === 201) {
         setUploadedInfo({ name: file.name, size: file.size, filename: data.filename })
@@ -240,20 +263,10 @@ export default function AdminPage() {
       }
     })
 
-    xhr.addEventListener('error', () => {
-      setUploadState('error')
-      notify('Erreur réseau — vérifiez la connexion.', 'err')
-    })
-
-    xhr.addEventListener('timeout', () => {
-      setUploadState('error')
-      notify('Délai dépassé — le fichier est peut-être trop grand.', 'err')
-    })
-
-    // Timeout: 10 minutes pour les très grosses vidéos
+    xhr.addEventListener('error', () => { setUploadState('error'); notify('Erreur réseau.', 'err') })
+    xhr.addEventListener('timeout', () => { setUploadState('error'); notify('Délai dépassé.', 'err') })
     xhr.timeout = 10 * 60 * 1000
 
-    // Envoi direct en corps brut — pas de FormData → zéro double-buffering côté serveur
     xhr.open('POST', `/api/upload?filename=${encodeURIComponent(file.name)}`)
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
     xhr.send(file)

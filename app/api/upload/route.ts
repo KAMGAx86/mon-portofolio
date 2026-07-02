@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
-import { mkdir, unlink } from 'fs/promises'
-import { createWriteStream } from 'fs'
-import { pipeline } from 'stream/promises'
-import { Readable } from 'stream'
-import path from 'path'
 import { createHmac } from 'crypto'
+
+const IS_VERCEL = process.env.VERCEL === '1'
+const ALLOWED_EXT = /\.(mp4|webm|ogg|mov|avi|mkv)$/i
+const MAX_SIZE = 500 * 1024 * 1024
 
 function isAuthenticated(request: Request): boolean {
   const cookie = request.headers.get('cookie') || ''
@@ -16,15 +15,48 @@ function isAuthenticated(request: Request): boolean {
   return token === expected
 }
 
-const ALLOWED_EXT = /\.(mp4|webm|ogg|mov|avi|mkv)$/i
-const MAX_SIZE = 500 * 1024 * 1024 // 500 MB
+// ── Vercel Blob: token generation for client-side direct upload ───────────────
+async function handleBlobUpload(request: Request): Promise<Response> {
+  const { handleUpload } = await import('@vercel/blob/client')
 
-export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        if (!isAuthenticated(request)) {
+          throw new Error('Non autorisé')
+        }
+        if (!ALLOWED_EXT.test(pathname)) {
+          throw new Error('Format non supporté. Utilisez MP4, WebM, MOV ou AVI.')
+        }
+        return {
+          allowedContentTypes: [
+            'video/mp4', 'video/webm', 'video/ogg',
+            'video/quicktime', 'video/x-msvideo', 'video/avi',
+          ],
+          maximumSizeInBytes: MAX_SIZE,
+          tokenPayload: JSON.stringify({ authenticated: true }),
+        }
+      },
+      onUploadCompleted: async ({ blob }) => {
+        console.log('[Vercel Blob] Upload completed:', blob.url)
+      },
+    })
+    return NextResponse.json(jsonResponse)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erreur upload'
+    return NextResponse.json({ error: msg }, { status: 400 })
+  }
+}
+
+// ── Local dev: stream file directly to disk (no RAM buffering) ────────────────
+async function handleLocalUpload(request: Request): Promise<Response> {
   if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
-  // Filename + size come as query params — file body is streamed raw
   const url = new URL(request.url)
   const originalName = url.searchParams.get('filename') || 'video.mp4'
   const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
@@ -33,53 +65,66 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Format non supporté. Utilisez MP4, WebM, MOV ou AVI.' }, { status: 400 })
   }
   if (contentLength > MAX_SIZE) {
-    return NextResponse.json({ error: `Fichier trop volumineux (max 500 MB). Reçu : ${(contentLength / 1024 / 1024).toFixed(0)} MB` }, { status: 400 })
+    return NextResponse.json({ error: `Fichier trop volumineux (max 500 MB).` }, { status: 400 })
   }
   if (!request.body) {
     return NextResponse.json({ error: 'Corps de la requête vide.' }, { status: 400 })
   }
 
+  const { mkdir, unlink } = await import('fs/promises')
+  const { createWriteStream } = await import('fs')
+  const { pipeline } = await import('stream/promises')
+  const { Readable } = await import('stream')
+  const path = await import('path')
+
   const videosDir = path.join(process.cwd(), 'public', 'videos')
   await mkdir(videosDir, { recursive: true })
 
   const ext = originalName.split('.').pop()?.toLowerCase() || 'mp4'
-  const baseName = originalName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 40)
-  const filename = `${Date.now()}-${baseName}.${ext}`
+  const base = originalName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 40)
+  const filename = `${Date.now()}-${base}.${ext}`
   const filepath = path.join(videosDir, filename)
 
   try {
-    // Stream directly to disk — zero full-file buffering in RAM
     const nodeReadable = Readable.fromWeb(request.body as Parameters<typeof Readable.fromWeb>[0])
     const writeStream = createWriteStream(filepath)
     await pipeline(nodeReadable, writeStream)
 
-    return NextResponse.json({
-      url: `/videos/${filename}`,
-      name: originalName,
-      size: contentLength,
-      filename,
-    })
+    return NextResponse.json({ url: `/videos/${filename}`, name: originalName, size: contentLength, filename })
   } catch (err) {
-    // Clean up partial file on error
     try { await unlink(filepath) } catch { /* ignore */ }
-    console.error('Upload stream error:', err)
-    return NextResponse.json({ error: "Erreur lors de l'écriture du fichier." }, { status: 500 })
+    console.error('Local upload error:', err)
+    return NextResponse.json({ error: "Erreur lors de l'écriture." }, { status: 500 })
   }
 }
 
-export async function DELETE(request: Request) {
+// ── Router ─────────────────────────────────────────────────────────────────────
+export async function POST(request: Request): Promise<Response> {
+  if (IS_VERCEL) {
+    return handleBlobUpload(request)
+  }
+  return handleLocalUpload(request)
+}
+
+// Delete local video file (only relevant in local dev)
+export async function DELETE(request: Request): Promise<Response> {
   if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  }
+  if (IS_VERCEL) {
+    // On Vercel, blob deletion handled separately (or leave orphan)
+    return NextResponse.json({ success: true })
   }
   try {
     const { filename } = await request.json()
     if (!filename || typeof filename !== 'string' || filename.includes('..') || filename.includes('/')) {
-      return NextResponse.json({ error: 'Nom de fichier invalide.' }, { status: 400 })
+      return NextResponse.json({ error: 'Nom invalide.' }, { status: 400 })
     }
-    const filepath = path.join(process.cwd(), 'public', 'videos', filename)
-    try { await unlink(filepath) } catch { /* file already gone */ }
+    const { unlink } = await import('fs/promises')
+    const path = await import('path')
+    try { await unlink(path.join(process.cwd(), 'public', 'videos', filename)) } catch { /* gone */ }
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Erreur lors de la suppression.' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur suppression.' }, { status: 500 })
   }
 }
